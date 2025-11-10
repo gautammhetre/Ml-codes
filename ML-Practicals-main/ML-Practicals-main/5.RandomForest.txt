@@ -1,0 +1,82 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn import metrics, model_selection
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import export_graphviz
+import graphviz
+
+
+data = pd.read_csv('car_evaluation.csv', 
+                   names=['buying','maint','doors','lug_boot','safety','class'])
+
+data.head()
+ 
+
+data['class'], class_names = pd.factorize(data['class'])
+for col in ['buying','maint','doors','lug_boot','safety']:
+    data[col], _ = pd.factorize(data[col])
+
+
+data.head()
+
+X = data.drop('class', axis=1)
+y = data['class']
+
+
+X_train, X_test, y_train, y_test = model_selection.train_test_split(
+    X, y, test_size=0.30, random_state=0
+)
+ 
+
+
+model = RandomForestClassifier(random_state=1)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+
+print("Misclassified samples:", (y_test != y_pred).sum())
+print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
+
+
+
+clf = RandomForestClassifier(n_estimators=100, random_state=0)
+clf.fit(X_train, y_train)
+
+feature_scores = pd.Series(clf.feature_importances_, index=X_train.columns) \
+                   .sort_values(ascending=False)
+
+sns.barplot(x=feature_scores, y=feature_scores.index)
+plt.xlabel('Feature Importance Score')
+plt.ylabel('Features')
+plt.title('Visualizing Important Features')
+plt.show()
+
+
+best_idx = np.argmax(clf.feature_importances_)
+best_name = X_train.columns[best_idx]
+print(f"The best feature is: {best_name}")
+
+
+
+
+
+
+
+# Train a single-tree forest using only the best feature
+one_feat = X_train.iloc[:, best_idx].values.reshape(-1, 1)
+single_tree_forest = RandomForestClassifier(n_estimators=1, random_state=0)
+single_tree_forest.fit(one_feat, y_train)
+
+# Export and visualize tree using Graphviz
+dot_data = export_graphviz(
+    single_tree_forest.estimators_[0],
+    out_file=None,
+    feature_names=[best_name],
+    class_names=list(class_names),
+    filled=True, rounded=True, special_characters=True
+)
+
+graph = graphviz.Source(dot_data)
+graph.render("best_feature_tree")  # saves as PDF
+graph.view("best_feature_tree")

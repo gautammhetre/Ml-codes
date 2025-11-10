@@ -1,0 +1,65 @@
+import numpy as np
+import random
+
+# Maze: 0 = free, 1 = wall, S = start, G = goal
+maze = [
+    [0, 0, 0, 0],
+    [1, 1, 0, 1],
+    [0, 0, 0, 0],
+    [0, 1, 1, 0],
+]
+start = (0, 0)
+goal = (3, 3)
+
+# Actions: up, down, left, right
+actions = ['U', 'D', 'L', 'R']
+rows, cols = len(maze), len(maze[0])
+Q = np.zeros((rows, cols, len(actions)))  # Q-table
+
+# Learning parameters
+alpha = 0.7       # learning rate / how much we learn from new experience (0–1)
+gamma = 0.9       # discount factor / how much we care about future rewards
+epsilon = 0.9     # exploration rate / how much we explore random moves instead of using current knowledge
+episodes = 500	  # how many training runs (iterations)
+
+# Step function
+def step(state, action):
+    r, c = state
+    if action == 'U': r -= 1
+    if action == 'D': r += 1
+    if action == 'L': c -= 1
+    if action == 'R': c += 1
+    # Check bounds and walls
+    if r < 0 or r >= rows or c < 0 or c >= cols or maze[r][c] == 1:
+        return state, -1  # invalid move penalty
+    if (r, c) == goal:
+        return (r, c), 10  # reward for goal
+    return (r, c), -0.1   # small negative reward
+
+# Training
+for _ in range(episodes):
+    state = start
+    while state != goal:
+        if random.uniform(0, 1) < epsilon:
+            action = random.choice(actions)  # explore / choose random action (try new things).
+        else:
+            action = actions[np.argmax(Q[state[0], state[1]])]  # exploit / pick action with highest Q-value (use what it has learned).
+        
+        next_state, reward = step(state, action)
+        a_idx = actions.index(action)
+        best_next = np.max(Q[next_state[0], next_state[1]])
+        
+        # Q-learning update # Formula: Q(s,a)=Q(s,a)+α[r+γ×max(Q(s′,a′))−Q(s,a)]
+        Q[state[0], state[1], a_idx] += alpha * (reward + gamma * best_next - Q[state[0], state[1], a_idx])
+        state = next_state
+
+# Test run (greedy)
+state = start
+path = [state]
+while state != goal:
+    action = actions[np.argmax(Q[state[0], state[1]])]
+    state, _ = step(state, action)
+    path.append(state)
+
+print("Learned path:")
+print(path)
